@@ -10,21 +10,14 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# ---------------------------------------------------------------
-# "Base de datos" en memoria (se pierde al reiniciar el servidor)
-# ---------------------------------------------------------------
 clientes = []
 ventas = []
 costo_pollo = 350.00
 
-# Contadores para generar los id automáticamente
 siguiente_id_cliente = 1
 siguiente_id_venta = 1
 
 
-# ---------------------------------------------------------------
-# Modelos Pydantic (validan los datos que llegan en el JSON)
-# ---------------------------------------------------------------
 class CrearCliente(BaseModel):
     nombre_cliente: str = Field(..., min_length=1, examples=["Juan Pérez"])
     direccion: str = Field(..., min_length=1, examples=["Calle 5 #123, Guadalupe"])
@@ -38,7 +31,6 @@ class ActualizarCliente(BaseModel):
 class CrearVenta(BaseModel):
     id_cliente: int
     cantidad_pollo: float = Field(..., ge=0, description="No puede ser negativa")
-    # Si no se envía, se usa la fecha y hora actual
     fecha_registro: Optional[datetime] = None
 
 
@@ -51,9 +43,6 @@ class ActualizarCosto(BaseModel):
     costo_pollo: float = Field(..., ge=0, description="No puede ser negativo")
 
 
-# ---------------------------------------------------------------
-# Funciones auxiliares
-# ---------------------------------------------------------------
 def buscar_cliente(id_cliente: int):
     for cliente in clientes:
         if cliente["id_cliente"] == id_cliente:
@@ -75,9 +64,6 @@ def quitar_zona_horaria(fecha: datetime) -> datetime:
     return fecha
 
 
-# ---------------------------------------------------------------
-# CLIENTES
-# ---------------------------------------------------------------
 @app.get("/v1/api/clientes", tags=["Clientes"])
 def listar_clientes():
     return {
@@ -139,9 +125,6 @@ def activar_cliente(id_cliente: int):
     return {"exito": True, "mensaje": "Cliente activado", "cliente": cliente}
 
 
-# ---------------------------------------------------------------
-# VENTAS
-# ---------------------------------------------------------------
 @app.post("/v1/api/ventas", status_code=201, tags=["Ventas"])
 def registrar_venta(datos: CrearVenta):
     global siguiente_id_venta
@@ -162,7 +145,6 @@ def registrar_venta(datos: CrearVenta):
         "id_cliente": datos.id_cliente,
         "cantidad_pollo": datos.cantidad_pollo,
         "fecha_registro": quitar_zona_horaria(fecha),
-        # Se guarda el costo vigente para que cambios futuros no alteren esta venta
         "costo_pollo": costo_pollo,
     }
     ventas.append(nueva)
@@ -187,11 +169,9 @@ def consultar_ventas(
     for venta in ventas:
         cliente = buscar_cliente(venta["id_cliente"])
 
-        # Solo clientes activos
         if cliente is None or not cliente["active"]:
             continue
 
-        # Filtro por fecha (se compara solo el día)
         dia_venta = venta["fecha_registro"].date()
         if fecha_inicio and dia_venta < fecha_inicio:
             continue
@@ -248,9 +228,7 @@ def actualizar_venta(id_venta: int, datos: ActualizarVenta):
     return {"exito": True, "mensaje": "Venta actualizada", "venta": venta}
 
 
-# ---------------------------------------------------------------
-# COSTO DEL POLLO
-# ---------------------------------------------------------------
+
 @app.get("/v1/api/costo-pollo", tags=["Costo del pollo"])
 def ver_costo_pollo():
     return {"exito": True, "costo_pollo": costo_pollo}
